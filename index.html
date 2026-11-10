@@ -1,593 +1,436 @@
-import React, { useState, useEffect, useRef } from 'react';
-
-// --- LUCIDE ICONS (SVG) ---
-const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>;
-const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
-const IconSquare = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>;
-const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
-const IconZap = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
-
-export default function App() {
-    // -- State: API & Connection --
-    const [apiToken, setApiToken] = useState("");
-    const [appId, setAppId] = useState("");
-    const [connStatus, setConnStatus] = useState("Disconnected"); // Disconnected, Connecting, Connected, Live Trading
-    const [isBotRunning, setIsBotRunning] = useState(false);
-
-    // -- State: Market & Strategy --
-    const [market, setMarket] = useState("Crash 300");
-    const [strategy, setStrategy] = useState("1");
-    const [stake, setStake] = useState(1.00);
-    const [martingale, setMartingale] = useState(false);
-    const [maxStep, setMaxStep] = useState(3);
-    const [tp, setTp] = useState(50);
-    const [sl, setSl] = useState(20);
-
-    // -- State: Data & Logs --
-    const [balance, setBalance] = useState(0);
-    const [currency, setCurrency] = useState("USD");
-    const [logs, setLogs] = useState([]);
-    const [chartData, setChartData] = useState(Array.from({length: 40}, () => 0));
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DERIV CRASH & BOOM AUTOMATED BOT</title>
     
-    // -- State: Bot Engine Visualizer --
-    const [signal, setSignal] = useState("STANDBY");
-    const [consecutiveTicks, setConsecutiveTicks] = useState(0); 
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    // -- References --
-    const wsRef = useRef(null);
-    const latestPriceRef = useRef(null);
-    const isTradingRef = useRef(false);
-    const activeContractRef = useRef(null);
-    const stateRef = useRef({ market, strategy, stake, isBotRunning });
-
-    // Update stateRef whenever states change to avoid stale closures in WS events
-    useEffect(() => {
-        stateRef.current = { market, strategy, stake, isBotRunning };
-    }, [market, strategy, stake, isBotRunning]);
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (wsRef.current) wsRef.current.close();
-        };
-    }, []);
-
-    // Stats
-    const totalTrades = logs.length;
-    const wins = logs.filter(l => l.result === 'WIN').length;
-    const winRate = totalTrades === 0 ? 0 : ((wins / totalTrades) * 100).toFixed(1);
-    const netProfit = logs.reduce((acc, curr) => acc + curr.profit, 0);
-
-    // Helpers
-    const getMarketSymbol = (marketName) => {
-        const symbolMap = {
-            "Crash 300": "CRASH300N", 
-            "Crash 500": "CRASH500N", 
-            "Crash 1000": "CRASH1000N",
-            "Boom 500": "BOOM500N",
-            "Boom 1000": "BOOM1000N"
-        };
-        return symbolMap[marketName] || "CRASH300N";
-    };
-
-    // --- DERIV WEBSOCKET INTEGRATION ---
-    const handleConnect = () => {
-        if (!apiToken || !appId) {
-            alert("Masukkan API Token dan App ID dari akun Deriv Anda (Demo disarankan).");
-            return;
-        }
-        setConnStatus("Connecting...");
-        
-        if(wsRef.current) wsRef.current.close();
-        
-        const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-            // Lakukan Otorisasi
-            ws.send(JSON.stringify({ authorize: apiToken }));
-        };
-
-        ws.onmessage = (evt) => {
-            const res = JSON.parse(evt.data);
-
-            if (res.error) {
-                console.error("API Error:", res.error);
-                setSignal(`ERROR: ${res.error.message}`);
-                if (res.msg_type === 'authorize') setConnStatus("Auth Failed");
-                return;
-            }
-
-            // Sukses Otorisasi
-            if (res.msg_type === 'authorize') {
-                setConnStatus("Connected");
-                setCurrency(res.authorize.currency);
-                // Berlangganan balance update (Real Balance Sync)
-                ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-                // Berlangganan harga tick
-                ws.send(JSON.stringify({ ticks: getMarketSymbol(stateRef.current.market), subscribe: 1 }));
-            }
-
-            // Update Saldo (Balance Stream)
-            if (res.msg_type === 'balance' && res.balance) {
-                setBalance(res.balance.balance);
-            }
-
-            // Update Harga (Tick Stream)
-            if (res.msg_type === 'tick' && res.tick) {
-                const price = res.tick.quote;
-                
-                setChartData(prev => {
-                    const newData = prev.every(v => v === 0) 
-                        ? Array.from({length: 40}, () => price) 
-                        : [...prev.slice(1), price];
-                    return newData;
-                });
-                
-                processBotLogic(price);
-            }
-
-            // Konfirmasi Pembelian Kontrak (Trade Execution)
-            if (res.msg_type === 'buy' && res.buy) {
-                activeContractRef.current = res.buy.contract_id;
-                const cost = res.buy.buy_price;
-                addLog(`EXEC BUY (${stateRef.current.market})`, "-", "PENDING", -cost);
-            }
-        };
-
-        ws.onclose = () => {
-            setConnStatus("Disconnected");
-            setSignal("Koneksi API Terputus");
-            setIsBotRunning(false);
-        };
-    };
-
-    const toggleBot = () => {
-        if (connStatus === "Disconnected" || connStatus === "Auth Failed") {
-            alert("Koneksikan API (Auth Success) terlebih dahulu sebelum memulai Bot!");
-            return;
-        }
-        setIsBotRunning(!isBotRunning);
-        setSignal(!isBotRunning ? "BOT STARTED - WAITING TICK..." : "STANDBY");
-        if(!isBotRunning) setConnStatus("Live Trading");
-        else setConnStatus("Connected");
-        
-        if(!isBotRunning) setConsecutiveTicks(0);
-    };
-
-    const addLog = (action, isSpike, result, profitLoss) => {
-        const newLog = {
-            id: Date.now() + Math.random(),
-            time: new Date().toLocaleTimeString(),
-            market: stateRef.current.market,
-            action,
-            isSpike,
-            result,
-            profit: profitLoss
-        };
-        setLogs(prev => [newLog, ...prev]);
-    };
-
-    // Eksekusi Order (Buy)
-    const executeTrade = (type) => {
-        if (isTradingRef.current || !wsRef.current) return;
-        isTradingRef.current = true;
-        
-        const symbol = getMarketSymbol(stateRef.current.market);
-        const amount = stateRef.current.stake;
-        
-        wsRef.current.send(JSON.stringify({
-            buy: 1,
-            price: amount,
-            parameters: {
-                amount: amount,
-                basis: "stake",
-                contract_type: type, // CALL (Rise) / PUT (Fall)
-                currency: currency,
-                duration: 1,
-                duration_unit: "t",
-                symbol: symbol
-            }
-        }));
-
-        setTimeout(() => { isTradingRef.current = false; }, 2500);
-    };
-
-    // Engine Utama
-    const processBotLogic = (currentPrice) => {
-        if (!latestPriceRef.current) {
-            latestPriceRef.current = currentPrice;
-            return;
-        }
-        
-        const prevPrice = latestPriceRef.current;
-        latestPriceRef.current = currentPrice;
-        
-        if (!stateRef.current.isBotRunning) return;
-        
-        const isBoom = stateRef.current.market.includes("Boom");
-        const diff = currentPrice - prevPrice;
-        
-        // Deteksi Spike (Disesuaikan untuk indeks nyata)
-        let isSpike = false;
-        if (isBoom && diff > 1.5) isSpike = true;
-        if (!isBoom && diff < -1.5) isSpike = true;
-        
-        const normalAction = isBoom ? "PUT" : "CALL"; // CALL=RISE, PUT=FALL
-        const revAction = isBoom ? "CALL" : "PUT";
-
-        if (stateRef.current.strategy === "1") {
-            if (isSpike) {
-                setSignal("SPIKE DETECTED! AUTO TP/CUT TRIGGERED");
-                if (activeContractRef.current && wsRef.current) {
-                    wsRef.current.send(JSON.stringify({ sell: activeContractRef.current, price: 0 }));
-                    activeContractRef.current = null;
-                }
-                addLog("AUTO SELL (Spike)", "Yes", "CUT", 0);
-            } else {
-                setSignal(`SCALPING (${normalAction}) - OP AKTIF`);
-                if (!isTradingRef.current) executeTrade(normalAction);
-            }
-        } 
-        else if (stateRef.current.strategy === "2") {
-            if (isSpike) {
-                setConsecutiveTicks(0);
-                setSignal("TREND BROKEN BY SPIKE. RESET TICK.");
-            } else {
-                setConsecutiveTicks(prev => prev + 1);
-                setSignal(`FOLLOW TREND - TICK ${consecutiveTicks + 1}`);
-                if (consecutiveTicks >= 4) {
-                    setSignal(`5 CANDLES DETECTED - REVERSAL OP (${revAction})`);
-                    if (!isTradingRef.current) executeTrade(revAction);
-                    setConsecutiveTicks(0); 
-                }
-            }
-        }
-        else if (stateRef.current.strategy === "3") {
-            setSignal("WAITING SPIKE SATURATION (STANDBY)");
-            if (isSpike && !isTradingRef.current) {
-                setSignal(`CATCHING THE SPIKE - PERFECT ENTRY (${normalAction})!`);
-                executeTrade(normalAction);
-            }
-        }
-    };
-
-    // Safe Chart path generation to prevent NaN or Infinity breaking the SVG rendering
-    const validData = chartData.filter(v => v !== 0);
-    const maxVal = validData.length > 0 ? Math.max(...validData) : 1;
-    const minVal = validData.length > 0 ? Math.min(...validData) : 0;
-    const range = (maxVal - minVal) === 0 ? 1 : (maxVal - minVal);
+    <!-- React & ReactDOM (Global via CDN) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    const points = chartData.map((val, i) => {
-        if(val === 0) return `${(i / 39) * 100},100`;
-        const x = (i / (chartData.length - 1)) * 100;
-        const y = 100 - (((val - minVal) / range) * 100);
-        return `${x},${!isNaN(y) && isFinite(y) ? y : 100}`;
-    }).join(" ");
+    <!-- Babel untuk kompilasi JSX langsung di browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <style>
+        body { background-color: #0f172a; color: white; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glossy-input { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .glossy-input:focus { outline: none; border-color: #fbbf24; box-shadow: 0 0 10px rgba(251, 191, 36, 0.3), inset 0 2px 4px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-    return (
-        <div className="bg-[#050505] min-h-screen text-gray-100 font-sans p-2 sm:p-4 md:p-6 overflow-x-hidden selection:bg-red-500/30">
-            <style dangerouslySetInnerHTML={{__html: `
-                body {
-                    background: radial-gradient(circle at top right, #1f1f1f, #000000);
-                    margin: 0;
+    <script type="text/babel">
+        // Destrukturisasi hooks dari object React global
+        const { useState, useEffect, useRef } = React;
+
+        // --- LUCIDE ICONS (SVG Murni agar aman di single-file) ---
+        const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>;
+        const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
+        const IconSquare = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>;
+        const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+        const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+        const IconZap = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
+
+        function App() {
+            // -- State: API & Connection --
+            const [apiToken, setApiToken] = useState("");
+            const [appId, setAppId] = useState("");
+            const [connStatus, setConnStatus] = useState("Disconnected");
+            const [isBotRunning, setIsBotRunning] = useState(false);
+
+            // -- State: Market & Strategy --
+            const [market, setMarket] = useState("Crash 300");
+            const [strategy, setStrategy] = useState("1");
+            const [stake, setStake] = useState(1.00);
+            const [martingale, setMartingale] = useState(false);
+            const [maxStep, setMaxStep] = useState(3);
+            const [tp, setTp] = useState(50);
+            const [sl, setSl] = useState(20);
+
+            // -- State: Data & Logs --
+            const [balance, setBalance] = useState(0);
+            const [currency, setCurrency] = useState("USD");
+            const [logs, setLogs] = useState([]);
+            const [chartData, setChartData] = useState(Array.from({ length: 40 }, () => 0));
+
+            // -- State: Bot Engine Visualizer --
+            const [signal, setSignal] = useState("STANDBY");
+            const [consecutiveTicks, setConsecutiveTicks] = useState(0);
+
+            // -- References --
+            const wsRef = useRef(null);
+            const latestPriceRef = useRef(null);
+            const isTradingRef = useRef(false);
+            const activeContractRef = useRef(null);
+            const stateRef = useRef({ market, strategy, stake, isBotRunning });
+
+            // Update stateRef 
+            useEffect(() => {
+                stateRef.current = { market, strategy, stake, isBotRunning };
+            }, [market, strategy, stake, isBotRunning]);
+
+            // Cleanup
+            useEffect(() => {
+                return () => {
+                    if (wsRef.current) wsRef.current.close();
+                };
+            }, []);
+
+            // Stats
+            const totalTrades = logs.length;
+            const wins = logs.filter(l => l.result === 'WIN').length;
+            const winRate = totalTrades === 0 ? 0 : ((wins / totalTrades) * 100).toFixed(1);
+            const totalNetProfit = logs.reduce((acc, curr) => acc + curr.profit, 0);
+
+            const getMarketSymbol = (marketName) => {
+                const symbolMap = {
+                    "Crash 300": "CRASH300N", "Crash 500": "CRASH500N", "Crash 1000": "CRASH1000N",
+                    "Boom 500": "BOOM500N", "Boom 1000": "BOOM1000N"
+                };
+                return symbolMap[marketName] || "CRASH300N";
+            };
+
+            const handleConnect = () => {
+                if (!apiToken || !appId) {
+                    alert("Masukkan API Token dan App ID dari akun Deriv Anda (Demo disarankan).");
+                    return;
                 }
-                .glass-panel {
-                    background: rgba(25, 25, 25, 0.6);
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    border-radius: 1rem;
-                    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-                }
-                .glossy-input {
-                    background: rgba(0, 0, 0, 0.5);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: white;
-                    transition: all 0.3s ease;
-                }
-                .glossy-input:focus {
-                    border-color: rgba(255, 255, 255, 0.5);
-                    outline: none;
-                    box-shadow: 0 0 10px rgba(255,255,255,0.1);
-                }
-                .pulse-text { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-            `}} />
-            
-            <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+                setConnStatus("Connecting...");
+                if(wsRef.current) wsRef.current.close();
                 
-                {/* TOP BAR */}
-                <header className="glass-panel p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
-                        <div className="p-2 bg-red-900/20 rounded-lg text-red-500">
-                            <IconActivity />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold tracking-wider text-white">DERIV <span className="text-red-500">CRASH & BOOM</span> BOT</h1>
-                            <p className="text-xs text-gray-400">Automated Trading Engine v1.0 (Live API)</p>
-                        </div>
-                    </div>
+                const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
+                wsRef.current = ws;
 
-                    <div className="flex flex-wrap items-center justify-center gap-3 w-full md:w-auto">
-                        <input 
-                            type="password" 
-                            placeholder="Deriv API Token" 
-                            className="glossy-input rounded-md px-3 py-1.5 text-sm w-40"
-                            value={apiToken}
-                            onChange={(e) => setApiToken(e.target.value)}
-                            disabled={connStatus !== "Disconnected"}
-                        />
-                        <input 
-                            type="text" 
-                            placeholder="App ID" 
-                            className="glossy-input rounded-md px-3 py-1.5 text-sm w-24"
-                            value={appId}
-                            onChange={(e) => setAppId(e.target.value)}
-                            disabled={connStatus !== "Disconnected"}
-                        />
-                        <button 
-                            onClick={handleConnect}
-                            disabled={connStatus !== "Disconnected"}
-                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                                connStatus === "Disconnected" 
-                                ? "bg-white/10 hover:bg-white/20 text-white" 
-                                : "bg-green-600/20 text-green-400 border border-green-500/50"
-                            }`}
-                        >
-                            {connStatus === "Disconnected" ? "Connect API" : connStatus}
-                        </button>
+                ws.onopen = () => { ws.send(JSON.stringify({ authorize: apiToken })); };
 
-                        <div className="w-px h-8 bg-white/10 mx-2 hidden md:block"></div>
-
-                        {/* MAIN CONTROL BUTTONS */}
-                        <button 
-                            onClick={toggleBot}
-                            className={`flex items-center gap-2 px-6 py-2 rounded-md font-bold transition-all transform active:scale-95 shadow-lg ${
-                                isBotRunning 
-                                ? "bg-red-700 text-white hover:bg-red-600 border border-red-500/50" 
-                                : "bg-green-600 text-white hover:bg-green-500 border border-green-400/50"
-                            }`}
-                        >
-                            {isBotRunning ? <IconSquare /> : <IconPlay />}
-                            {isBotRunning ? "STOP BOT" : "START BOT"}
-                        </button>
-                    </div>
-                </header>
-
-                {/* MAIN CONTENT GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+                ws.onmessage = (evt) => {
+                    const res = JSON.parse(evt.data);
+                    if (res.error) {
+                        setSignal(`ERROR: ${res.error.message}`);
+                        if (res.msg_type === 'authorize') setConnStatus("Auth Failed");
+                        return;
+                    }
                     
-                    {/* PANEL KIRI: SETUP */}
-                    <div className="lg:col-span-3 space-y-4">
-                        <div className="glass-panel p-5">
-                            <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
-                                <IconSettings /> SETUP MARKET
-                            </h2>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs text-gray-400 block mb-1">Market Index</label>
-                                    <select 
-                                        className="w-full glossy-input rounded-md px-3 py-2 text-sm"
-                                        value={market}
-                                        onChange={(e) => setMarket(e.target.value)}
-                                        disabled={isBotRunning}
-                                    >
-                                        <option>Crash 300</option>
-                                        <option>Crash 500</option>
-                                        <option>Crash 1000</option>
-                                        <option>Boom 500</option>
-                                        <option>Boom 1000</option>
-                                    </select>
-                                </div>
+                    if (res.msg_type === 'authorize') {
+                        setConnStatus("Connected");
+                        setCurrency(res.authorize.currency);
+                        ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                        ws.send(JSON.stringify({ ticks: getMarketSymbol(stateRef.current.market), subscribe: 1 }));
+                    }
 
-                                <div>
-                                    <label className="text-xs text-gray-400 block mb-1">Metode Strategi</label>
-                                    <select 
-                                        className="w-full glossy-input rounded-md px-3 py-2 text-sm"
-                                        value={strategy}
-                                        onChange={(e) => setStrategy(e.target.value)}
-                                        disabled={isBotRunning}
-                                    >
-                                        <option value="1">Metode 1: Scalp & Auto TP Spike</option>
-                                        <option value="2">Metode 2: Trend & 5 Reversal</option>
-                                        <option value="3">Metode 3: Catching The Spike</option>
-                                    </select>
-                                </div>
-                                
-                                <div className="bg-black/40 border border-white/5 rounded-md p-3 text-xs text-gray-300 leading-relaxed">
-                                    {strategy === "1" && `UTAMA: Bot scalping candle kecil (${market.includes("Boom") ? "FALL" : "RISE"}). Jika ada Spike, Auto Sell instant dari harga awal untuk cegah kerugian.`}
-                                    {strategy === "2" && "Follow Trend candle kecil. Jika terjadi 5 candle searah beruntun, bot otomatis OP Reversal melawan tren."}
-                                    {strategy === "3" && `Counter-Spike. Menunggu lonjakan besar, lalu OP khusus untuk menangkap momen Spike panjang.`}
-                                </div>
-                            </div>
-                        </div>
+                    if (res.msg_type === 'balance') {
+                        setBalance(res.balance.balance);
+                    }
 
-                        <div className="glass-panel p-5">
-                            <h2 className="text-sm font-semibold text-gray-300 mb-4 border-b border-white/10 pb-2">MONEY MANAGEMENT</h2>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs text-gray-400">Stake Awal (USD)</label>
-                                    <input type="number" step="0.5" className="glossy-input rounded-md px-2 py-1 text-sm w-20 text-right" value={stake} onChange={e=>setStake(Number(e.target.value))} disabled={isBotRunning} />
-                                </div>
-                                
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs text-gray-400">Martingale (x2.0)</label>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" className="sr-only peer" checked={martingale} onChange={()=>setMartingale(!martingale)} disabled={isBotRunning} />
-                                        <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                                    </label>
-                                </div>
+                    if (res.msg_type === 'tick') {
+                        const price = res.tick.quote;
+                        setChartData(prev => {
+                            const isAllZero = prev.every(v => v === 0);
+                            const newData = isAllZero ? Array.from({ length: 40 }, () => price) : [...prev.slice(1), price];
+                            return newData;
+                        });
+                        processBotLogic(price);
+                    }
 
-                                {martingale && (
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-xs text-gray-400">Max Step</label>
-                                        <input type="number" className="glossy-input rounded-md px-2 py-1 text-sm w-20 text-right" value={maxStep} onChange={e=>setMaxStep(e.target.value)} disabled={isBotRunning} />
-                                    </div>
-                                )}
+                    if (res.msg_type === 'buy') {
+                        activeContractRef.current = res.buy.contract_id;
+                        const cost = res.buy.buy_price;
+                        addLog(`EXEC BUY (${stateRef.current.market})`, "-", "PENDING", -cost);
+                    }
+                };
 
-                                <div className="pt-2 border-t border-white/10 flex gap-2">
-                                    <div className="w-1/2">
-                                        <label className="text-[10px] text-green-400 block mb-1">Target Profit</label>
-                                        <input type="number" className="glossy-input rounded-md px-2 py-1 text-sm w-full text-green-400 font-bold" value={tp} onChange={e=>setTp(e.target.value)} disabled={isBotRunning} />
-                                    </div>
-                                    <div className="w-1/2">
-                                        <label className="text-[10px] text-red-400 block mb-1">Stop Loss</label>
-                                        <input type="number" className="glossy-input rounded-md px-2 py-1 text-sm w-full text-red-400 font-bold" value={sl} onChange={e=>setSl(e.target.value)} disabled={isBotRunning} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                ws.onclose = () => {
+                    setConnStatus("Disconnected");
+                    setSignal("Koneksi API Terputus");
+                    setIsBotRunning(false);
+                };
+            };
 
-                    {/* PANEL TENGAH: MONITORING */}
-                    <div className="lg:col-span-6 space-y-4 flex flex-col">
-                        <div className="glass-panel p-5 flex-1 flex flex-col relative overflow-hidden">
-                            {/* Decorative Blur */}
-                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
-                            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-green-600/10 rounded-full blur-3xl pointer-events-none"></div>
+            const toggleBot = () => {
+                if (connStatus === "Disconnected" || connStatus === "Auth Failed") {
+                    alert("Koneksikan API (Auth Success) terlebih dahulu sebelum memulai Bot!");
+                    return;
+                }
+                setIsBotRunning(!isBotRunning);
+                setSignal(!isBotRunning ? "BOT STARTED - WAITING TICK..." : "STANDBY");
+                if (!isBotRunning) {
+                    setConnStatus("Live Trading");
+                    setConsecutiveTicks(0);
+                } else {
+                    setConnStatus("Connected");
+                }
+            };
 
-                            <div className="flex justify-between items-end mb-4 relative z-10">
-                                <div>
-                                    <h2 className="text-sm font-semibold text-gray-300">LIVE TICK VISUALIZER (DERIV REAL FEED)</h2>
-                                    <div className="text-3xl font-mono mt-1 font-bold tracking-tight text-white flex items-center gap-2">
-                                        {chartData[chartData.length - 1] === 0 ? "Loading..." : chartData[chartData.length - 1].toFixed(3)}
-                                        {(connStatus === "Connected" || connStatus === "Live Trading") && <IconWifi className="text-green-500 pulse-text" />}
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Status Sinyal Bot</div>
-                                    <div className={`px-3 py-1 rounded border text-xs font-bold ${
-                                        isBotRunning ? 'bg-green-900/30 border-green-500/50 text-green-400 pulse-text' : 'bg-gray-800 border-gray-600 text-gray-400'
-                                    }`}>
-                                        {signal}
-                                    </div>
-                                </div>
-                            </div>
+            const addLog = (action, isSpike, result, profitLoss) => {
+                const newLog = {
+                    id: Date.now() + Math.random(),
+                    time: new Date().toLocaleTimeString(),
+                    market: stateRef.current.market,
+                    action, isSpike, result, profit: profitLoss
+                };
+                setLogs(prev => [newLog, ...prev]);
+            };
 
-                            {/* Chart Area */}
-                            <div className="flex-1 bg-black/40 rounded-lg border border-white/5 relative p-4 flex flex-col justify-end min-h-[250px] z-10">
-                                <div className="absolute inset-0 border-y border-white/5 pointer-events-none flex flex-col justify-between">
-                                    <div className="border-b border-white/5 h-1/4 w-full"></div>
-                                    <div className="border-b border-white/5 h-1/4 w-full"></div>
-                                    <div className="border-b border-white/5 h-1/4 w-full"></div>
-                                </div>
-                                
-                                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                                    <defs>
-                                        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                            <stop offset="0%" stopColor="rgba(239, 68, 68, 0.2)" />
-                                            <stop offset="100%" stopColor="#ef4444" />
-                                        </linearGradient>
-                                    </defs>
-                                    <polyline 
-                                        points={points} 
-                                        fill="none" 
-                                        stroke="url(#lineGrad)" 
-                                        strokeWidth="1.5"
-                                        strokeLinejoin="round"
-                                    />
-                                    {chartData[chartData.length - 1] !== 0 && !isNaN((chartData[chartData.length - 1] - minVal) / range) && (
-                                        <circle 
-                                            cx="100" 
-                                            cy={100 - (((chartData[chartData.length - 1] - minVal) / range) * 100)} 
-                                            r="2.5" 
-                                            fill="#fff" 
-                                            className="pulse-text"
-                                        />
-                                    )}
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* PANEL KANAN: STATS */}
-                    <div className="lg:col-span-3 space-y-4">
-                        <div className="glass-panel p-5 text-center relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-1 px-2 text-[8px] bg-green-900/50 text-green-400 rounded-bl-lg border-b border-l border-green-500/20 font-bold tracking-widest uppercase">
-                                Live Balance
-                            </div>
-                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1 mt-2">Deriv Account Balance</div>
-                            <div className="text-3xl font-bold text-white font-mono tracking-tight flex justify-center items-center gap-1">
-                                {balance === 0 ? <span className="text-gray-600 text-lg">Wait Sync...</span> : <><span>{currency === "USD" ? "$" : ""}</span>{balance.toFixed(2)}</>}
-                            </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="glass-panel p-4 text-center">
-                                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Total Trade</div>
-                                <div className="text-xl font-semibold text-white">{totalTrades}</div>
-                            </div>
-                            <div className="glass-panel p-4 text-center">
-                                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Win Rate</div>
-                                <div className={`text-xl font-semibold ${winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {winRate}%
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="glass-panel p-4 flex justify-between items-center">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Est. Net Profit</div>
-                            <div className={`text-lg font-bold font-mono ${netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {netProfit >= 0 ? '+' : ''}${netProfit.toFixed(2)}
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* LOG TRANSAKSI BAWAH */}
-                <div className="glass-panel p-5 overflow-hidden">
-                    <h2 className="text-sm font-semibold text-gray-300 mb-4">LOG AKTIVITAS BOT</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-300 whitespace-nowrap">
-                            <thead className="text-xs text-gray-500 bg-black/40 border-b border-white/5">
-                                <tr>
-                                    <th className="px-4 py-2 rounded-tl-md">Waktu</th>
-                                    <th className="px-4 py-2">Market</th>
-                                    <th className="px-4 py-2">Aksi</th>
-                                    <th className="px-4 py-2 text-center">Spike?</th>
-                                    <th className="px-4 py-2">Hasil</th>
-                                    <th className="px-4 py-2 text-right">Est. P/L</th>
-                                    <th className="px-4 py-2 text-right rounded-tr-md">Balance</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {logs.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="7" className="px-4 py-8 text-center text-gray-500 italic">Belum ada aktivitas. Tekan Start Bot (Pastikan API Terkoneksi).</td>
-                                    </tr>
-                                ) : (
-                                    logs.slice(0, 10).map((log) => (
-                                        <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="px-4 py-2 text-gray-400 font-mono text-xs">{log.time}</td>
-                                            <td className="px-4 py-2 font-medium">{log.market}</td>
-                                            <td className="px-4 py-2">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.action.includes('RISE') || log.action.includes('CALL') || log.action.includes('BUY') ? 'bg-green-900/50 text-green-400' : log.action.includes('FALL') || log.action.includes('PUT') || log.action.includes('SELL') ? 'bg-red-900/50 text-red-400' : 'bg-gray-800 text-gray-300'}`}>
-                                                    {log.action}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2 text-center">
-                                                {log.isSpike === 'Yes' ? <span className="text-red-500 font-bold text-xs">YA</span> : '-'}
-                                            </td>
-                                            <td className={`px-4 py-2 font-bold text-xs ${log.result === 'WIN' ? 'text-green-500' : log.result === 'PENDING' ? 'text-yellow-500' : log.result === 'CUT' ? 'text-orange-500' : 'text-red-500'}`}>
-                                                {log.result}
-                                            </td>
-                                            <td className={`px-4 py-2 text-right font-mono ${log.profit > 0 ? 'text-green-400' : log.profit < 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                                                {log.profit > 0 ? '+' : ''}{log.profit === 0 ? '-' : log.profit.toFixed(2)}
-                                            </td>
-                                            <td className="px-4 py-2 text-right font-mono text-gray-500 italic">Auto-Sync</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            const executeTrade = (type) => {
+                if (isTradingRef.current || !wsRef.current) return;
+                isTradingRef.current = true;
+                const symbol = getMarketSymbol(stateRef.current.market);
+                const amount = stateRef.current.stake;
                 
-            </div>
-        </div>
-    );
-}
+                wsRef.current.send(JSON.stringify({
+                    buy: 1,
+                    price: amount,
+                    parameters: {
+                        amount: amount,
+                        basis: "stake",
+                        contract_type: type, // CALL (Rise) / PUT (Fall)
+                        currency: currency,
+                        duration: 1,
+                        duration_unit: "t",
+                        symbol: symbol
+                    }
+                }));
+
+                setTimeout(() => { isTradingRef.current = false; }, 2500);
+            };
+
+            const processBotLogic = (currentPrice) => {
+                if (!latestPriceRef.current) { latestPriceRef.current = currentPrice; return; }
+                
+                const prevPrice = latestPriceRef.current;
+                latestPriceRef.current = currentPrice;
+                
+                if (!stateRef.current.isBotRunning) return;
+
+                const isBoom = stateRef.current.market.includes("Boom");
+                const diff = currentPrice - prevPrice;
+                
+                let isSpike = false;
+                if (isBoom && diff > 1.5) isSpike = true;
+                if (!isBoom && diff < -1.5) isSpike = true;
+
+                const normalAction = isBoom ? "PUT" : "CALL"; 
+                const revAction = isBoom ? "CALL" : "PUT"; 
+
+                if (stateRef.current.strategy === "1") {
+                    if (isSpike) {
+                        setSignal("SPIKE DETECTED! AUTO TP/CUT TRIGGERED");
+                        if (activeContractRef.current && wsRef.current) {
+                            wsRef.current.send(JSON.stringify({ sell: activeContractRef.current, price: 0 }));
+                            activeContractRef.current = null;
+                        }
+                        setConsecutiveTicks(0);
+                    } else {
+                        setConsecutiveTicks(prev => prev + 1);
+                        setSignal(`SCALPING ${normalAction} (Tick: ${consecutiveTicks + 1})`);
+                        if ((consecutiveTicks + 1) % 2 === 0) executeTrade(normalAction);
+                    }
+                }
+                else if (stateRef.current.strategy === "2") {
+                    if (isSpike) setConsecutiveTicks(0); else setConsecutiveTicks(prev => prev + 1);
+                    if (consecutiveTicks >= 5) {
+                        setSignal(`REVERSAL OP ${revAction} EXECUTED!`);
+                        executeTrade(revAction);
+                        setConsecutiveTicks(0);
+                    } else {
+                        setSignal(`FOLLOW TREND (Tick: ${consecutiveTicks})`);
+                    }
+                }
+                else if (stateRef.current.strategy === "3") {
+                    if (isSpike) {
+                        setSignal(`SPIKE CAUGHT! (Drop detected)`);
+                    } else {
+                        setConsecutiveTicks(prev => prev + 1);
+                        setSignal(`WAITING SPIKE - PREPARING ${revAction}...`);
+                        if (consecutiveTicks > 3) {
+                            executeTrade(revAction);
+                            setConsecutiveTicks(0);
+                        }
+                    }
+                }
+            };
+
+            const renderChart = () => {
+                const maxVal = Math.max(...chartData);
+                const minVal = Math.min(...chartData);
+                const range = maxVal - minVal || 1;
+                
+                return (
+                    <div className="h-40 w-full flex items-end justify-between space-x-1 mt-4 border-b border-gray-600 pb-2">
+                        {chartData.map((val, i) => {
+                            const height = val === 0 ? 0 : Math.max(10, ((val - minVal) / range) * 100);
+                            const prevVal = i > 0 ? chartData[i-1] : val;
+                            const isDrop = val < prevVal;
+                            return (
+                                <div key={i} 
+                                     className={`w-full rounded-t-sm transition-all duration-300 ease-out ${val === 0 ? 'bg-transparent' : isDrop ? 'bg-red-500' : 'bg-emerald-500'}`} 
+                                     style={{ height: `${height}%` }}
+                                     title={`Price: ${val}`}>
+                                </div>
+                            )
+                        })}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto">
+                    {/* TOP BAR */}
+                    <div className="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between shadow-2xl relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/10 to-transparent pointer-events-none"></div>
+                        <div className="flex items-center gap-4 z-10 mb-4 md:mb-0">
+                            <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-lg">
+                                <IconActivity />
+                            </div>
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-white">
+                                    DERIV CRASH & BOOM BOT v1.0
+                                </h1>
+                                <p className="text-sm text-gray-400">Automated Trading Engine</p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-center gap-3 z-10">
+                            <input 
+                                type="text" 
+                                placeholder="App ID (e.g. 1089)" 
+                                value={appId} onChange={e => setAppId(e.target.value)}
+                                className="glossy-input rounded-lg px-4 py-2 w-32 text-sm text-center"
+                            />
+                            <input 
+                                type="password" 
+                                placeholder="Deriv API Token" 
+                                value={apiToken} onChange={e => setApiToken(e.target.value)}
+                                className="glossy-input rounded-lg px-4 py-2 w-48 text-sm"
+                            />
+                            <button onClick={handleConnect} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                                <IconWifi /> {connStatus === "Connected" || connStatus === "Live Trading" ? "Re-Connect" : "Connect API"}
+                            </button>
+                            <div className={`px-3 py-1 rounded-full text-xs font-bold border ${connStatus === "Live Trading" ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" : connStatus === "Connected" ? "bg-blue-500/20 border-blue-500 text-blue-400" : "bg-red-500/20 border-red-500 text-red-400"}`}>
+                                {connStatus}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* LEFT PANEL */}
+                        <div className="lg:col-span-4 flex flex-col gap-6">
+                            <div className="glass-panel rounded-2xl p-5">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 border-b border-gray-700 pb-2">
+                                    <IconSettings /> Setup Market & Strategi
+                                </h2>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-sm text-gray-400 mb-1 block">Pilih Market Index</label>
+                                        <select 
+                                            value={market} onChange={e => setMarket(e.target.value)}
+                                            className="w-full glossy-input rounded-lg px-4 py-3 appearance-none font-semibold text-yellow-500"
+                                        >
+                                            <option value="Crash 300">Crash 300 Index</option>
+                                            <option value="Crash 500">Crash 500 Index</option>
+                                            <option value="Crash 1000">Crash 1000 Index</option>
+                                            <option value="Boom 500">Boom 500 Index</option>
+                                            <option value="Boom 1000">Boom 1000 Index</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-sm text-gray-400 mb-1 block">Metode Strategi Bot</label>
+                                        <select 
+                                            value={strategy} onChange={e => setStrategy(e.target.value)}
+                                            className="w-full glossy-input rounded-lg px-4 py-3 appearance-none"
+                                        >
+                                            <option value="1">Metode 1: Scalping & Auto TP Spike</option>
+                                            <option value="2">Metode 2: Follow Trend & Reversal 5 Candle</option>
+                                            <option value="3">Metode 3: Counter-Spike (Catching Spike)</option>
+                                        </select>
+                                        <div className="mt-2 text-xs text-gray-400 bg-black/30 p-3 rounded-lg border border-gray-700">
+                                            {strategy === "1" && `Bot akan OP ${market.includes("Boom") ? "FALL" : "RISE"} mengikuti candle normal. Jika terdeteksi Spike, otomatis trigger Close instant (Cut).`}
+                                            {strategy === "2" && `Bot mengikuti tren. Jika ada 5 candle normal berturut-turut, bot otomatis OP ${market.includes("Boom") ? "CALL" : "PUT"} (Reversal).`}
+                                            {strategy === "3" && `Hanya mencari momen spike. Bot akan OP ${market.includes("Boom") ? "CALL" : "PUT"} saat indikator jenuh tercapai.`}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="glass-panel rounded-2xl p-5">
+                                <h2 className="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Money Management</h2>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2">
+                                        <label className="text-sm text-gray-400 block mb-1">Stake Awal (USD)</label>
+                                        <input type="number" value={stake} onChange={e => setStake(Number(e.target.value))} className="w-full glossy-input rounded-lg px-4 py-2 font-mono text-lg" step="0.5" />
+                                    </div>
+                                    <div className="col-span-2 flex items-center justify-between bg-black/20 p-3 rounded-lg">
+                                        <span className="text-sm text-gray-300">Aktifkan Martingale (x2.0)</span>
+                                        <button onClick={() => setMartingale(!martingale)} className={`w-12 h-6 rounded-full relative transition-colors ${martingale ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${martingale ? 'left-7' : 'left-1'}`}></div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* MIDDLE & RIGHT PANELS */}
+                        <div className="lg:col-span-8 flex flex-col gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="glass-panel p-4 rounded-2xl text-center">
+                                    <p className="text-sm text-gray-400">Real Balance</p>
+                                    <p className="text-3xl font-bold text-white font-mono mt-1">
+                                        {balance > 0 ? `${currency} ${balance.toFixed(2)}` : "0.00"}
+                                    </p>
+                                </div>
+                                <div className="glass-panel p-4 rounded-2xl text-center">
+                                    <p className="text-sm text-gray-400">Total Net Profit</p>
+                                    <p className={`text-3xl font-bold font-mono mt-1 ${totalNetProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        ${totalNetProfit.toFixed(2)}
+                                    </p>
+                                </div>
+                                <div className="glass-panel p-4 rounded-2xl text-center">
+                                    <p className="text-sm text-gray-400">Win Rate</p>
+                                    <p className="text-3xl font-bold text-yellow-400 font-mono mt-1">{winRate}%</p>
+                                </div>
+                            </div>
+
+                            <div className="glass-panel rounded-2xl p-5 flex flex-col items-center justify-center py-8 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 pointer-events-none"></div>
+                                <h3 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest z-10">Live Engine Status</h3>
+                                <div className={`text-2xl md:text-4xl font-black mb-6 z-10 px-6 py-2 rounded-xl border ${
+                                    signal.includes("SPIKE") ? "text-red-500 border-red-500/50 bg-red-500/10" : 
+                                    signal.includes("REVERSAL") || signal.includes("SCALPING") ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/10" : 
+                                    "text-yellow-500 border-yellow-500/50 bg-yellow-500/10"
+                                }`}>
+                                    {signal}
+                                </div>
+                                
+                                <button onClick={toggleBot} className={`z-10 w-64 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-2xl transition-all transform hover:scale-105 active:scale-95 ${
+                                    isBotRunning 
+                                    ? "bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700" 
+                                    : "bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600"
+                                }`}>
+                                    {isBotRunning ? <IconSquare /> : <IconPlay />}
+                                    {isBotRunning ? "STOP BOT ENGINE" : "START BOT ENGINE"}
+                                </button>
+                                
+                                <div className="w-full mt-6 z-10">
+                                    <p className="text-xs text-gray-500 mb-1">Live Tick Stream (WebSocket): {market}</p>
+                                    {renderChart()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
