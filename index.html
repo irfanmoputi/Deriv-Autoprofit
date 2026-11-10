@@ -283,7 +283,10 @@
         const wsEndpoints = [
             "wss://ws.binaryws.com/websockets/v3",
             "wss://ws.derivws.com/websockets/v3",
-            "wss://frontend.binaryws.com/websockets/v3"
+            "wss://frontend.binaryws.com/websockets/v3",
+            "wss://ws.deriv.com/websockets/v3",
+            "wss://blue.derivws.com/websockets/v3",
+            "wss://green.derivws.com/websockets/v3"
         ];
         let currentEndpointIndex = 0;
         let isAuthorized = false;
@@ -379,37 +382,37 @@
             };
 
             ws.onerror = (error) => {
-                console.error("WebSocket Error pada URL:", wsUrl);
-                handleConnectionFail();
-            };
+            console.error("WebSocket Error pada URL:", wsUrl);
+            handleConnectionFail();
+        };
 
-            ws.onclose = (e) => {
-                console.log("WebSocket Ditutup:", e.reason);
-                if (ws.pingInterval) clearInterval(ws.pingInterval);
-                
-                if (!isAuthorized) {
-                    handleConnectionFail(); // Jika putus sebelum otorisasi, coba server lain
-                } else {
-                    updateStatus("Disconnected", "red");
-                    setSignalText("Koneksi API Terputus", "red");
-                    if (isBotRunning) toggleBot(); // Matikan bot jika disconnect saat trading
-                }
-            };
-        }
-
-        function handleConnectionFail() {
-            currentEndpointIndex++;
-            if (currentEndpointIndex < wsEndpoints.length) {
-                setSignalText(`Gagal. Mencoba server alternatif ${currentEndpointIndex + 1}...`, "yellow");
-                setTimeout(attemptConnection, 1000); // Jeda 1 detik sebelum mencoba server berikutnya
+        ws.onclose = (e) => {
+            console.log("WebSocket Ditutup:", e.reason);
+            if (ws.pingInterval) clearInterval(ws.pingInterval);
+            
+            if (!isAuthorized) {
+                handleConnectionFail(); // Jika putus sebelum otorisasi, coba server lain
             } else {
-                setSignalText("Gagal Terhubung ke Semua Server. Coba gunakan VPN atau App ID Default.", "red");
                 updateStatus("Disconnected", "red");
+                setSignalText("Koneksi API Terputus", "red");
+                if (isBotRunning) toggleBot(); // Matikan bot jika disconnect saat trading
             }
-        }
+        };
+    }
 
-        // -- Trading Engine Core --
-        function executeTrade(type) {
+    function handleConnectionFail() {
+        currentEndpointIndex++;
+        if (currentEndpointIndex < wsEndpoints.length) {
+            setSignalText(`Gagal. Mencoba server alternatif ${currentEndpointIndex + 1}...`, "yellow");
+            setTimeout(attemptConnection, 2000); // Jeda 2 detik sebelum mencoba server berikutnya
+        } else {
+            setSignalText("Semua Server Diblokir ISP. Wajib gunakan DNS 1.1.1.1 atau VPN.", "red");
+            updateStatus("Disconnected", "red");
+        }
+    }
+
+    // -- Trading Engine Core --
+    function executeTrade(type) {
             if (isTrading || !ws) return;
             isTrading = true;
             
