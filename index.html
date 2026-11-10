@@ -279,37 +279,53 @@
             });
         }
 
-        // -- API Connection & Logic --
+        // -- API Connection & Logic (Diperbarui dengan Sistem Fallback Server) --
+        const wsEndpoints = [
+            "wss://ws.binaryws.com/websockets/v3",
+            "wss://ws.derivws.com/websockets/v3",
+            "wss://frontend.binaryws.com/websockets/v3"
+        ];
+        let currentEndpointIndex = 0;
+        let isAuthorized = false;
+
         function handleConnect() {
-            // Default ke App ID 1089 jika user mengosongkan kolom App ID
+            const tokenVal = document.getElementById('apiToken').value.trim();
+            if (!tokenVal) {
+                alert("Harap masukkan Deriv API Token Anda!");
+                return;
+            }
+            
+            currentEndpointIndex = 0; // Mulai dari server pertama
+            isAuthorized = false;
+            attemptConnection();
+        }
+
+        function attemptConnection() {
+            // Ambil App ID (Default 1089 jika kosong)
             let appIdVal = document.getElementById('appId').value.trim();
             if (!appIdVal) appIdVal = "1089"; 
             
             const tokenVal = document.getElementById('apiToken').value.trim();
 
-            if (!tokenVal) {
-                alert("Harap masukkan Deriv API Token Anda!");
-                return;
-            }
-
             updateStatus("Connecting...", "blue");
-            setSignalText("Mencoba Terhubung ke Deriv...", "yellow");
+            setSignalText(`Mencoba Server ${currentEndpointIndex + 1}...`, "yellow");
             
             if (ws) {
                 if (ws.pingInterval) clearInterval(ws.pingInterval);
+                ws.onclose = null; // Hindari trigger loop
+                ws.onerror = null;
                 ws.close();
             }
             
-            // Menggunakan Endpoint ws.binaryws.com yang JAUH LEBIH STABIL dan anti-blokir ISP
-            const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${appIdVal}`;
+            const wsUrl = `${wsEndpoints[currentEndpointIndex]}?app_id=${appIdVal}`;
             console.log("Mencoba koneksi ke:", wsUrl);
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
-                console.log("WebSocket Terhubung. Mengirim Otorisasi...");
+                console.log("WebSocket Terhubung ke", wsUrl, ". Mengirim Otorisasi...");
                 ws.send(JSON.stringify({ authorize: tokenVal }));
                 
-                // Keep-Alive Ping setiap 15 detik agar koneksi tidak diputus server Deriv
+                // Keep-Alive Ping setiap 15 detik
                 ws.pingInterval = setInterval(() => {
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({ ping: 1 }));
@@ -320,7 +336,7 @@
             ws.onmessage = (evt) => {
                 const res = JSON.parse(evt.data);
 
-                // Handle Errors
+                // Handle Errors dari API (Token Salah / App ID Invalid)
                 if (res.error) {
                     console.error("API Error:", res.error.message);
                     setSignalText(`ERROR: ${res.error.message}`, "red");
@@ -331,6 +347,7 @@
                 // Handle Authorization
                 if (res.msg_type === 'authorize') {
                     console.log("Otorisasi Sukses!");
+                    isAuthorized = true;
                     updateStatus("Connected", "blue");
                     setSignalText("STANDBY", "yellow");
                     currency = res.authorize.currency;
@@ -362,19 +379,33 @@
             };
 
             ws.onerror = (error) => {
-                console.error("WebSocket Error:", error);
-                setSignalText("Gagal Terhubung (Mungkin diblokir jaringan/ISP)", "red");
+                console.error("WebSocket Error pada URL:", wsUrl);
+                handleConnectionFail();
             };
 
             ws.onclose = (e) => {
                 console.log("WebSocket Ditutup:", e.reason);
                 if (ws.pingInterval) clearInterval(ws.pingInterval);
-                updateStatus("Disconnected", "red");
-                if (document.getElementById('txtSignal').innerText !== "Gagal Terhubung (Mungkin diblokir jaringan/ISP)") {
-                     setSignalText("Koneksi API Terputus", "red");
+                
+                if (!isAuthorized) {
+                    handleConnectionFail(); // Jika putus sebelum otorisasi, coba server lain
+                } else {
+                    updateStatus("Disconnected", "red");
+                    setSignalText("Koneksi API Terputus", "red");
+                    if (isBotRunning) toggleBot(); // Matikan bot jika disconnect saat trading
                 }
-                if (isBotRunning) toggleBot(); // Matikan bot jika disconnect
             };
+        }
+
+        function handleConnectionFail() {
+            currentEndpointIndex++;
+            if (currentEndpointIndex < wsEndpoints.length) {
+                setSignalText(`Gagal. Mencoba server alternatif ${currentEndpointIndex + 1}...`, "yellow");
+                setTimeout(attemptConnection, 1000); // Jeda 1 detik sebelum mencoba server berikutnya
+            } else {
+                setSignalText("Gagal Terhubung ke Semua Server. Coba gunakan VPN atau App ID Default.", "red");
+                updateStatus("Disconnected", "red");
+            }
         }
 
         // -- Trading Engine Core --
