@@ -34,23 +34,29 @@
             </div>
 
             <div class="flex flex-wrap items-center justify-center gap-3 z-10">
-                <input 
-                    type="text" 
-                    id="appId"
-                    placeholder="App ID (Auto: 1089)" 
-                    class="glossy-input rounded-lg px-4 py-2 w-36 text-sm text-center"
-                />
-                <input 
-                    type="password" 
-                    id="apiToken"
-                    placeholder="Deriv API Token" 
-                    class="glossy-input rounded-lg px-4 py-2 w-48 text-sm"
-                />
-                <button id="btnConnect" onclick="handleConnect()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                <div class="flex flex-col items-center">
+                    <input 
+                        type="text" 
+                        id="appId"
+                        placeholder="App ID (Kosongkan = 1089)" 
+                        class="glossy-input rounded-lg px-4 py-2 w-48 text-sm text-center"
+                    />
+                    <span class="text-[10px] text-gray-400 mt-1">Hanya Angka (Opsional)</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <input 
+                        type="password" 
+                        id="apiToken"
+                        placeholder="Input API Token Anda..." 
+                        class="glossy-input rounded-lg px-4 py-2 w-56 text-sm"
+                    />
+                    <span class="text-[10px] text-gray-400 mt-1">Dapat dari menu: Security -> API Token</span>
+                </div>
+                <button id="btnConnect" onclick="handleConnect()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 mb-5 md:mb-0">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> 
                     <span>Connect API</span>
                 </button>
-                <div id="statusBadge" class="px-3 py-1 rounded-full text-xs font-bold border bg-red-500/20 border-red-500 text-red-400">
+                <div id="statusBadge" class="px-3 py-1 rounded-full text-xs font-bold border bg-red-500/20 border-red-500 text-red-400 mb-5 md:mb-0">
                     Disconnected
                 </div>
             </div>
@@ -292,9 +298,18 @@
         let isAuthorized = false;
 
         function handleConnect() {
+            let appIdVal = document.getElementById('appId').value.trim();
             const tokenVal = document.getElementById('apiToken').value.trim();
+            
             if (!tokenVal) {
                 alert("Harap masukkan Deriv API Token Anda!");
+                return;
+            }
+
+            // Mencegah user memasukkan API Token ke kolom App ID
+            if (appIdVal && !/^\d+$/.test(appIdVal)) {
+                alert("App ID SALAH! App ID harus berupa ANGKA (contoh: 1089 atau biarkan kosong).\n\nTeks acak yang Anda masukkan itu sepertinya adalah API Token. Tolong pindahkan ke kolom API Token!");
+                document.getElementById('appId').value = ""; // Kosongkan otomatis
                 return;
             }
             
@@ -305,8 +320,14 @@
 
         function attemptConnection() {
             // Ambil App ID (Default 1089 jika kosong)
-            let appIdVal = document.getElementById('appId').value.trim();
-            if (!appIdVal) appIdVal = "1089"; 
+            let rawAppId = document.getElementById('appId').value.trim();
+            // Validasi: Paksa hanya angka. Jika pengguna copas huruf, akan dibuang.
+            let appIdVal = rawAppId.replace(/[^0-9]/g, ''); 
+            
+            if (!appIdVal) {
+                appIdVal = "1089"; 
+                document.getElementById('appId').value = ""; // Bersihkan kolom jika isinya huruf semua
+            }
             
             const tokenVal = document.getElementById('apiToken').value.trim();
 
