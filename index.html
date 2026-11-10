@@ -1,395 +1,459 @@
-import React, { useState, useEffect, useRef } from 'react';
-
-// --- LUCIDE ICONS ---
-const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>;
-const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
-const IconSquare = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>;
-const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
-
-export default function App() {
-    const [apiToken, setApiToken] = useState("");
-    const [appId, setAppId] = useState("");
-    const [connStatus, setConnStatus] = useState("Disconnected");
-    const [isBotRunning, setIsBotRunning] = useState(false);
-
-    const [market, setMarket] = useState("Crash 300");
-    const [strategy, setStrategy] = useState("1");
-    const [stake, setStake] = useState(1.00);
-    const [martingale, setMartingale] = useState(false);
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DERIV CRASH & BOOM AUTOMATED BOT</title>
     
-    const [balance, setBalance] = useState(0);
-    const [currency, setCurrency] = useState("USD");
-    const [logs, setLogs] = useState([]);
-    const [chartData, setChartData] = useState(Array.from({length: 40}, () => 0));
-    
-    const [signal, setSignal] = useState("STANDBY");
-    const [consecutiveTicks, setConsecutiveTicks] = useState(0); 
-    
-    const wsRef = useRef(null);
-    const latestPriceRef = useRef(null);
-    const isTradingRef = useRef(false);
-    const activeContractRef = useRef(null);
-    const stateRef = useRef({ market, strategy, stake, isBotRunning });
+    <!-- Tailwind CSS Only (Tidak ada React & Babel) -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-    useEffect(() => {
-        stateRef.current = { market, strategy, stake, isBotRunning };
-    }, [market, strategy, stake, isBotRunning]);
+    <style>
+        body { background-color: #0f172a; color: white; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glossy-input { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); color: white; }
+        .glossy-input:focus { outline: none; border-color: #fbbf24; box-shadow: 0 0 10px rgba(251, 191, 36, 0.3), inset 0 2px 4px rgba(0,0,0,0.5); }
+        .chart-bar { transition: height 0.3s ease-out, background-color 0.3s; width: 100%; border-radius: 2px 2px 0 0; }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen p-4 md:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto">
+        <!-- TOP BAR -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between shadow-2xl relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-r from-yellow-600/10 to-transparent pointer-events-none"></div>
+            <div class="flex items-center gap-4 z-10 mb-4 md:mb-0">
+                <div class="p-3 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-white">
+                        DERIV CRASH & BOOM BOT v1.0
+                    </h1>
+                    <p class="text-sm text-gray-400">Automated Trading Engine (Vanilla JS)</p>
+                </div>
+            </div>
 
-    useEffect(() => {
-        return () => { if (wsRef.current) wsRef.current.close(); };
-    }, []);
+            <div class="flex flex-wrap items-center justify-center gap-3 z-10">
+                <input 
+                    type="text" 
+                    id="appId"
+                    placeholder="App ID (Auto: 1089)" 
+                    class="glossy-input rounded-lg px-4 py-2 w-36 text-sm text-center"
+                />
+                <input 
+                    type="password" 
+                    id="apiToken"
+                    placeholder="Deriv API Token" 
+                    class="glossy-input rounded-lg px-4 py-2 w-48 text-sm"
+                />
+                <button id="btnConnect" onclick="handleConnect()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> 
+                    <span>Connect API</span>
+                </button>
+                <div id="statusBadge" class="px-3 py-1 rounded-full text-xs font-bold border bg-red-500/20 border-red-500 text-red-400">
+                    Disconnected
+                </div>
+            </div>
+        </div>
 
-    const totalTrades = logs.length;
-    const wins = logs.filter(l => l.result === 'WIN').length;
-    const winRate = totalTrades === 0 ? 0 : ((wins / totalTrades) * 100).toFixed(1);
-    const netProfit = logs.reduce((acc, curr) => acc + curr.profit, 0);
-
-    const getMarketSymbol = (marketName) => {
-        const symbolMap = {
-            "Crash 300": "CRASH300N", "Crash 500": "CRASH500N", "Crash 1000": "CRASH1000N",
-            "Boom 500": "BOOM500N", "Boom 1000": "BOOM1000N"
-        };
-        return symbolMap[marketName] || "CRASH300N";
-    };
-
-    const handleConnect = () => {
-        if (!apiToken || !appId) {
-            alert("Masukkan API Token dan App ID dari akun Deriv Anda.");
-            return;
-        }
-        
-        if (!/^\d+$/.test(appId)) {
-            alert("App ID salah! App ID HANYA BOLEH BERISI ANGKA (contoh: 1089).");
-            return;
-        }
-
-        setConnStatus("Connecting...");
-        if(wsRef.current) wsRef.current.close();
-        
-        const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
-        wsRef.current = ws;
-
-        ws.onopen = () => { ws.send(JSON.stringify({ authorize: apiToken })); };
-
-        ws.onmessage = (evt) => {
-            const res = JSON.parse(evt.data);
-
-            if (res.error) {
-                setSignal(`ERROR: ${res.error.message}`);
-                if (res.msg_type === 'authorize') setConnStatus("Auth Failed");
-                return;
-            }
-
-            if (res.msg_type === 'authorize') {
-                setConnStatus("Connected");
-                setCurrency(res.authorize.currency);
-                ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-                ws.send(JSON.stringify({ ticks: getMarketSymbol(stateRef.current.market), subscribe: 1 }));
-            }
-
-            if (res.msg_type === 'balance' && res.balance) {
-                setBalance(res.balance.balance);
-            }
-
-            if (res.msg_type === 'tick' && res.tick) {
-                const price = res.tick.quote;
-                setChartData(prev => {
-                    const newData = prev.every(v => v === 0) ? Array.from({length: 40}, () => price) : [...prev.slice(1), price];
-                    return newData;
-                });
-                processBotLogic(price);
-            }
-
-            if (res.msg_type === 'buy' && res.buy) {
-                activeContractRef.current = res.buy.contract_id;
-                const cost = res.buy.buy_price;
-                addLog(`EXEC BUY (${stateRef.current.market})`, "-", "PENDING", -cost);
-            }
-        };
-
-        ws.onclose = () => {
-            setConnStatus("Disconnected");
-            setSignal("Koneksi API Terputus");
-            setIsBotRunning(false);
-        };
-    };
-
-    const toggleBot = () => {
-        if (connStatus === "Disconnected" || connStatus === "Auth Failed") {
-            alert("Koneksikan API terlebih dahulu!");
-            return;
-        }
-        setIsBotRunning(!isBotRunning);
-        setSignal(!isBotRunning ? "BOT STARTED - WAITING TICK..." : "STANDBY");
-        if(!isBotRunning) { setConnStatus("Live Trading"); setConsecutiveTicks(0); }
-        else setConnStatus("Connected");
-    };
-
-    const addLog = (action, isSpike, result, profitLoss) => {
-        const newLog = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), market: stateRef.current.market, action, isSpike, result, profit: profitLoss };
-        setLogs(prev => [newLog, ...prev]);
-    };
-
-    const executeTrade = (type) => {
-        if (isTradingRef.current || !wsRef.current) return;
-        isTradingRef.current = true;
-        
-        const symbol = getMarketSymbol(stateRef.current.market);
-        const amount = stateRef.current.stake;
-        
-        wsRef.current.send(JSON.stringify({
-            buy: 1, price: amount,
-            parameters: { amount: amount, basis: "stake", contract_type: type, currency: currency, duration: 1, duration_unit: "t", symbol: symbol }
-        }));
-
-        setTimeout(() => { isTradingRef.current = false; }, 2500);
-    };
-
-    const processBotLogic = (currentPrice) => {
-        if (!latestPriceRef.current) { latestPriceRef.current = currentPrice; return; }
-        const prevPrice = latestPriceRef.current;
-        latestPriceRef.current = currentPrice;
-        
-        if (!stateRef.current.isBotRunning) return;
-        const isBoom = stateRef.current.market.includes("Boom");
-        const diff = currentPrice - prevPrice;
-        
-        let isSpike = false;
-        if (isBoom && diff > 1.5) isSpike = true;
-        if (!isBoom && diff < -1.5) isSpike = true;
-        
-        const normalAction = isBoom ? "PUT" : "CALL";
-        const revAction = isBoom ? "CALL" : "PUT";
-
-        if (stateRef.current.strategy === "1") {
-            if (isSpike) {
-                setSignal("SPIKE DETECTED! AUTO TP/CUT TRIGGERED");
-                if (activeContractRef.current && wsRef.current) {
-                    wsRef.current.send(JSON.stringify({ sell: activeContractRef.current, price: 0 }));
-                    activeContractRef.current = null;
-                }
-                addLog("AUTO SELL (Spike)", "Yes", "CUT", 0);
-            } else {
-                setSignal(`SCALPING (${normalAction}) - OP AKTIF`);
-                if (!isTradingRef.current) executeTrade(normalAction);
-            }
-        } 
-        else if (stateRef.current.strategy === "2") {
-            if (isSpike) { setConsecutiveTicks(0); setSignal("TREND BROKEN BY SPIKE. RESET TICK."); }
-            else {
-                setConsecutiveTicks(prev => prev + 1);
-                setSignal(`FOLLOW TREND - TICK ${consecutiveTicks + 1}`);
-                if (consecutiveTicks >= 4) {
-                    setSignal(`5 CANDLES DETECTED - REVERSAL OP (${revAction})`);
-                    if (!isTradingRef.current) executeTrade(revAction);
-                    setConsecutiveTicks(0); 
-                }
-            }
-        }
-        else if (stateRef.current.strategy === "3") {
-            setSignal("WAITING SPIKE SATURATION (STANDBY)");
-            if (isSpike && !isTradingRef.current) {
-                setSignal(`CATCHING THE SPIKE - PERFECT ENTRY (${normalAction})!`);
-                executeTrade(normalAction);
-            }
-        }
-    };
-
-    const validData = chartData.filter(v => v !== 0);
-    const maxVal = validData.length > 0 ? Math.max(...validData) : 1;
-    const minVal = validData.length > 0 ? Math.min(...validData) : 0;
-    const range = (maxVal - minVal) === 0 ? 1 : (maxVal - minVal);
-    
-    const points = chartData.map((val, i) => {
-        if(val === 0) return `${(i / 39) * 100},100`;
-        const x = (i / (chartData.length - 1)) * 100;
-        const y = 100 - (((val - minVal) / range) * 100);
-        return `${x},${!isNaN(y) && isFinite(y) ? y : 100}`;
-    }).join(" ");
-
-    return (
-        <div className="bg-gray-900 text-white min-h-screen p-4 sm:p-6 lg:p-8 font-sans selection:bg-red-500/30 overflow-x-hidden">
-            <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
-                <header className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
-                        <div className="p-2 bg-red-900/20 rounded-lg text-red-500"><IconActivity /></div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- LEFT PANEL -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <div class="glass-panel rounded-2xl p-5">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2 border-b border-gray-700 pb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> 
+                        Setup Market & Strategi
+                    </h2>
+                    
+                    <div class="space-y-4">
                         <div>
-                            <h1 className="text-xl font-bold tracking-wider text-white">DERIV <span className="text-red-500">CRASH & BOOM</span> BOT</h1>
-                            <p className="text-xs text-gray-400">Automated Trading Engine v1.0 (Live API)</p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-center gap-3 w-full md:w-auto">
-                        <input 
-                            type="text" 
-                            placeholder="App ID (e.g. 1089)" 
-                            className="bg-gray-900/50 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-white/50 focus:shadow-[0_0_10px_rgba(255,255,255,0.1)] rounded-md px-3 py-1.5 text-sm w-32 text-center transition-all"
-                            value={appId}
-                            onChange={(e) => setAppId(e.target.value)}
-                            disabled={connStatus !== "Disconnected"}
-                        />
-                        <input 
-                            type="password" 
-                            placeholder="Deriv API Token" 
-                            className="bg-gray-900/50 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-white/50 focus:shadow-[0_0_10px_rgba(255,255,255,0.1)] rounded-md px-3 py-1.5 text-sm w-48 transition-all"
-                            value={apiToken}
-                            onChange={(e) => setApiToken(e.target.value)}
-                            disabled={connStatus !== "Disconnected"}
-                        />
-                        <button 
-                            onClick={handleConnect}
-                            disabled={connStatus !== "Disconnected"}
-                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                                connStatus === "Disconnected" ? "bg-white/10 hover:bg-white/20 text-white" : "bg-green-600/20 text-green-400 border border-green-500/50"
-                            }`}
-                        >
-                            {connStatus === "Disconnected" ? "Connect API" : connStatus}
-                        </button>
-
-                        <div className="w-px h-8 bg-white/10 mx-2 hidden md:block"></div>
-
-                        <button 
-                            onClick={toggleBot}
-                            className={`flex items-center gap-2 px-6 py-2 rounded-md font-bold transition-all transform active:scale-95 shadow-lg ${
-                                isBotRunning ? "bg-red-700 text-white hover:bg-red-600 border border-red-500/50" : "bg-green-600 text-white hover:bg-green-500 border border-green-400/50"
-                            }`}
-                        >
-                            {isBotRunning ? <IconSquare /> : <IconPlay />}
-                            {isBotRunning ? "STOP BOT" : "START BOT"}
-                        </button>
-                    </div>
-                </header>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-                    <div className="lg:col-span-3 space-y-4">
-                        <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-5">
-                            <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2 mb-4 border-b border-white/10 pb-2"><IconSettings /> SETUP MARKET</h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs text-gray-400 block mb-1">Market Index</label>
-                                    <select className="w-full bg-gray-900/50 border border-white/10 text-white focus:outline-none focus:border-white/50 rounded-md px-3 py-2 text-sm" value={market} onChange={(e) => setMarket(e.target.value)} disabled={isBotRunning}>
-                                        <option>Crash 300</option><option>Crash 500</option><option>Crash 1000</option><option>Boom 500</option><option>Boom 1000</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400 block mb-1">Metode Strategi</label>
-                                    <select className="w-full bg-gray-900/50 border border-white/10 text-white focus:outline-none focus:border-white/50 rounded-md px-3 py-2 text-sm" value={strategy} onChange={(e) => setStrategy(e.target.value)} disabled={isBotRunning}>
-                                        <option value="1">Metode 1: Scalp & Auto TP Spike</option>
-                                        <option value="2">Metode 2: Trend & 5 Reversal</option>
-                                        <option value="3">Metode 3: Catching The Spike</option>
-                                    </select>
-                                </div>
-                            </div>
+                            <label class="text-sm text-gray-400 mb-1 block">Pilih Market Index</label>
+                            <select id="market" onchange="changeMarket()" class="w-full glossy-input rounded-lg px-4 py-3 appearance-none font-semibold text-yellow-500">
+                                <option value="Crash 300">Crash 300 Index</option>
+                                <option value="Crash 500">Crash 500 Index</option>
+                                <option value="Crash 1000">Crash 1000 Index</option>
+                                <option value="Boom 500">Boom 500 Index</option>
+                                <option value="Boom 1000">Boom 1000 Index</option>
+                            </select>
                         </div>
 
-                        <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-5">
-                            <h2 className="text-sm font-semibold text-gray-300 mb-4 border-b border-white/10 pb-2">MONEY MANAGEMENT</h2>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs text-gray-400">Stake (USD)</label>
-                                    <input type="number" step="0.5" className="bg-gray-900/50 border border-white/10 text-white focus:outline-none focus:border-white/50 rounded-md px-2 py-1 text-sm w-20 text-right" value={stake} onChange={e=>setStake(Number(e.target.value))} disabled={isBotRunning} />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs text-gray-400">Martingale</label>
-                                    <input type="checkbox" checked={martingale} onChange={()=>setMartingale(!martingale)} disabled={isBotRunning} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="lg:col-span-6 space-y-4 flex flex-col">
-                        <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-5 flex-1 flex flex-col relative overflow-hidden">
-                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
-                            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-green-600/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                            <div className="flex justify-between items-end mb-4 relative z-10">
-                                <div>
-                                    <h2 className="text-sm font-semibold text-gray-300">LIVE TICK VISUALIZER</h2>
-                                    <div className="text-3xl font-mono mt-1 font-bold tracking-tight text-white flex items-center gap-2">
-                                        {chartData[chartData.length - 1] === 0 ? "Loading..." : chartData[chartData.length - 1].toFixed(3)}
-                                        {(connStatus === "Connected" || connStatus === "Live Trading") && <IconWifi className="text-green-500 animate-pulse" />}
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Status Sinyal Bot</div>
-                                    <div className={`px-3 py-1 rounded border text-xs font-bold ${isBotRunning ? 'bg-green-900/30 border-green-500/50 text-green-400 animate-pulse' : 'bg-gray-800 border-gray-600 text-gray-400'}`}>{signal}</div>
-                                </div>
-                            </div>
-
-                            <div className="flex-1 bg-black/40 rounded-lg border border-white/5 relative p-4 flex flex-col justify-end min-h-[250px] z-10">
-                                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                                    <defs>
-                                        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                            <stop offset="0%" stopColor="rgba(239, 68, 68, 0.2)" />
-                                            <stop offset="100%" stopColor="#ef4444" />
-                                        </linearGradient>
-                                    </defs>
-                                    <polyline points={points} fill="none" stroke="url(#lineGrad)" strokeWidth="1.5" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="lg:col-span-3 space-y-4">
-                        <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-5 text-center relative overflow-hidden">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1 mt-2">Deriv Account Balance</div>
-                            <div className="text-3xl font-bold text-white font-mono tracking-tight flex justify-center items-center gap-1">
-                                {balance === 0 ? <span className="text-gray-600 text-lg">Wait Sync...</span> : <><span>{currency === "USD" ? "$" : ""}</span>{balance.toFixed(2)}</>}
-                            </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-4 text-center">
-                                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Total Trade</div>
-                                <div className="text-xl font-semibold text-white">{totalTrades}</div>
-                            </div>
-                            <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-4 text-center">
-                                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Win Rate</div>
-                                <div className={`text-xl font-semibold ${winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>{winRate}%</div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-4 flex justify-between items-center">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Est. Net Profit</div>
-                            <div className={`text-lg font-bold font-mono ${netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {netProfit >= 0 ? '+' : ''}${netProfit.toFixed(2)}
-                            </div>
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Metode Strategi Bot</label>
+                            <select id="strategy" class="w-full glossy-input rounded-lg px-4 py-3 appearance-none">
+                                <option value="1">Metode 1: Scalping & Auto TP Spike</option>
+                                <option value="2">Metode 2: Follow Trend & Reversal 5 Candle</option>
+                                <option value="3">Metode 3: Counter-Spike (Catching Spike)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gray-800/80 backdrop-blur-md border border-white/10 shadow-lg rounded-2xl p-5 overflow-hidden">
-                    <h2 className="text-sm font-semibold text-gray-300 mb-4">LOG AKTIVITAS BOT</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-300 whitespace-nowrap">
-                            <thead className="text-xs text-gray-500 bg-black/40 border-b border-white/5">
-                                <tr>
-                                    <th className="px-4 py-2 rounded-tl-md">Waktu</th><th className="px-4 py-2">Market</th>
-                                    <th className="px-4 py-2">Aksi</th><th className="px-4 py-2">Hasil</th>
-                                    <th className="px-4 py-2 text-right">Est. P/L</th><th className="px-4 py-2 text-right rounded-tr-md">Balance</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {logs.length === 0 ? (
-                                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-500 italic">Belum ada aktivitas. Tekan Start Bot.</td></tr>
-                                ) : (
-                                    logs.slice(0, 10).map((log) => (
-                                        <tr key={log.id} className="hover:bg-white/[0.02]">
-                                            <td className="px-4 py-2 text-gray-400 font-mono text-xs">{log.time}</td>
-                                            <td className="px-4 py-2 font-medium">{log.market}</td>
-                                            <td className="px-4 py-2"><span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-800">{log.action}</span></td>
-                                            <td className="px-4 py-2 font-bold text-xs">{log.result}</td>
-                                            <td className="px-4 py-2 text-right font-mono">{log.profit > 0 ? '+' : ''}{log.profit === 0 ? '-' : log.profit.toFixed(2)}</td>
-                                            <td className="px-4 py-2 text-right font-mono text-gray-500 italic">Auto-Sync</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                <div class="glass-panel rounded-2xl p-5">
+                    <h2 class="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Money Management</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="text-sm text-gray-400 block mb-1">Stake Awal (USD)</label>
+                            <input type="number" id="stake" value="1.00" class="w-full glossy-input rounded-lg px-4 py-2 font-mono text-lg" step="0.5" />
+                        </div>
+                        <div class="col-span-2 flex items-center justify-between bg-black/20 p-3 rounded-lg">
+                            <span class="text-sm text-gray-300">Aktifkan Martingale (x2.0)</span>
+                            <button id="btnMartingale" onclick="toggleMartingale()" class="w-12 h-6 rounded-full relative transition-colors bg-gray-600">
+                                <div id="martingaleCircle" class="absolute top-1 w-4 h-4 rounded-full bg-white transition-all left-1"></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MIDDLE & RIGHT PANELS -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-panel p-4 rounded-2xl text-center">
+                        <p class="text-sm text-gray-400">Real Balance</p>
+                        <p id="txtBalance" class="text-3xl font-bold text-white font-mono mt-1">0.00</p>
+                    </div>
+                    <div class="glass-panel p-4 rounded-2xl text-center">
+                        <p class="text-sm text-gray-400">Total Net Profit</p>
+                        <p id="txtProfit" class="text-3xl font-bold font-mono mt-1 text-emerald-400">$0.00</p>
+                    </div>
+                    <div class="glass-panel p-4 rounded-2xl text-center">
+                        <p class="text-sm text-gray-400">Win Rate</p>
+                        <p id="txtWinRate" class="text-3xl font-bold text-yellow-400 font-mono mt-1">0.0%</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-5 flex flex-col items-center justify-center py-8 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 pointer-events-none"></div>
+                    <h3 class="text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest z-10">Live Engine Status</h3>
+                    
+                    <div id="txtSignal" class="text-2xl md:text-4xl font-black mb-6 z-10 px-6 py-2 rounded-xl border text-yellow-500 border-yellow-500/50 bg-yellow-500/10">
+                        STANDBY
+                    </div>
+                    
+                    <button id="btnToggleBot" onclick="toggleBot()" class="z-10 w-64 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-2xl transition-all transform hover:scale-105 active:scale-95 bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600">
+                        <svg id="iconPlay" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <span id="btnToggleText">START BOT ENGINE</span>
+                    </button>
+                    
+                    <div class="w-full mt-6 z-10">
+                        <p id="streamInfo" class="text-xs text-gray-500 mb-1">Live Tick Stream (WebSocket): Crash 300 Index</p>
+                        <div id="chartContainer" class="h-40 w-full flex items-end justify-between space-x-1 mt-4 border-b border-gray-600 pb-2">
+                            <!-- Chart bars will be injected here via JS -->
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    );
-}
+    </div>
+
+    <!-- VANILLA JAVASCRIPT LOGIC -->
+    <script>
+        // -- State Variables --
+        let ws = null;
+        let isBotRunning = false;
+        let balance = 0;
+        let currency = "USD";
+        let chartData = Array(40).fill(0);
+        
+        let consecutiveTicks = 0;
+        let latestPrice = null;
+        let activeContract = null;
+        let isTrading = false;
+        
+        let totalNetProfit = 0;
+        let martingaleEnabled = false;
+
+        // -- Helpers --
+        function getMarketSymbol() {
+            const marketName = document.getElementById('market').value;
+            const symbolMap = {
+                "Crash 300": "CRASH300N", "Crash 500": "CRASH500N", "Crash 1000": "CRASH1000N",
+                "Boom 500": "BOOM500N", "Boom 1000": "BOOM1000N"
+            };
+            return symbolMap[marketName] || "CRASH300N";
+        }
+
+        function updateStatus(text, type) {
+            const badge = document.getElementById('statusBadge');
+            badge.innerText = text;
+            if (type === 'emerald') badge.className = "px-3 py-1 rounded-full text-xs font-bold border bg-emerald-500/20 border-emerald-500 text-emerald-400";
+            else if (type === 'blue') badge.className = "px-3 py-1 rounded-full text-xs font-bold border bg-blue-500/20 border-blue-500 text-blue-400";
+            else badge.className = "px-3 py-1 rounded-full text-xs font-bold border bg-red-500/20 border-red-500 text-red-400";
+            
+            const btnSpan = document.querySelector('#btnConnect span');
+            btnSpan.innerText = (text === 'Connected' || text === 'Live Trading') ? "Re-Connect" : "Connect API";
+        }
+
+        function setSignalText(text, color) {
+            const el = document.getElementById('txtSignal');
+            el.innerText = text;
+            if (color === "red") el.className = "text-2xl md:text-4xl font-black mb-6 z-10 px-6 py-2 rounded-xl border text-red-500 border-red-500/50 bg-red-500/10 text-center";
+            else if (color === "emerald") el.className = "text-2xl md:text-4xl font-black mb-6 z-10 px-6 py-2 rounded-xl border text-emerald-400 border-emerald-500/50 bg-emerald-500/10 text-center";
+            else el.className = "text-2xl md:text-4xl font-black mb-6 z-10 px-6 py-2 rounded-xl border text-yellow-500 border-yellow-500/50 bg-yellow-500/10 text-center";
+        }
+
+        // -- Interaction Functions --
+        function toggleMartingale() {
+            martingaleEnabled = !martingaleEnabled;
+            const btn = document.getElementById('btnMartingale');
+            const circle = document.getElementById('martingaleCircle');
+            if(martingaleEnabled) {
+                btn.classList.replace('bg-gray-600', 'bg-emerald-500');
+                circle.classList.replace('left-1', 'left-7');
+            } else {
+                btn.classList.replace('bg-emerald-500', 'bg-gray-600');
+                circle.classList.replace('left-7', 'left-1');
+            }
+        }
+
+        function changeMarket() {
+            const marketName = document.getElementById('market').value;
+            document.getElementById('streamInfo').innerText = `Live Tick Stream (WebSocket): ${marketName}`;
+            
+            // Resubscribe if connected
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ forget_all: "ticks" }));
+                ws.send(JSON.stringify({ ticks: getMarketSymbol(), subscribe: 1 }));
+                chartData = Array(40).fill(0);
+                renderChart();
+            }
+        }
+
+        function toggleBot() {
+            const status = document.getElementById('statusBadge').innerText;
+            if (status === "Disconnected" || status === "Auth Failed") {
+                alert("Koneksikan API (Auth Success) terlebih dahulu sebelum memulai Bot!");
+                return;
+            }
+            
+            isBotRunning = !isBotRunning;
+            const btn = document.getElementById('btnToggleBot');
+            const btnText = document.getElementById('btnToggleText');
+            
+            if (isBotRunning) {
+                updateStatus('Live Trading', 'emerald');
+                btnText.innerText = "STOP BOT ENGINE";
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg> <span id="btnToggleText">STOP BOT ENGINE</span>`;
+                btn.className = "z-10 w-64 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-2xl transition-all transform hover:scale-105 active:scale-95 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700";
+                setSignalText("BOT STARTED - WAITING TICK...", "yellow");
+            } else {
+                if (ws && ws.readyState === WebSocket.OPEN) updateStatus('Connected', 'blue');
+                consecutiveTicks = 0;
+                btn.innerHTML = `<svg id="iconPlay" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> <span id="btnToggleText">START BOT ENGINE</span>`;
+                btn.className = "z-10 w-64 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-2xl transition-all transform hover:scale-105 active:scale-95 bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600";
+                setSignalText("STANDBY", "yellow");
+            }
+        }
+
+        // -- Charting --
+        function updateChartData(price) {
+            const isAllZero = chartData.every(v => v === 0);
+            if (isAllZero) {
+                chartData = Array(40).fill(price);
+            } else {
+                chartData.shift();
+                chartData.push(price);
+            }
+            renderChart();
+        }
+
+        function renderChart() {
+            const container = document.getElementById('chartContainer');
+            container.innerHTML = ''; // Clear previous
+            
+            const maxVal = Math.max(...chartData);
+            const validVals = chartData.filter(v => v > 0);
+            const minVal = validVals.length > 0 ? Math.min(...validVals) : 0;
+            const range = maxVal - minVal || 1;
+            
+            chartData.forEach((val, i) => {
+                const height = val === 0 ? 0 : Math.max(10, ((val - minVal) / range) * 100);
+                const prevVal = i > 0 ? chartData[i-1] : val;
+                const isDrop = val < prevVal;
+                
+                const bar = document.createElement('div');
+                bar.className = `chart-bar ${val === 0 ? 'bg-transparent' : isDrop ? 'bg-red-500' : 'bg-emerald-500'}`;
+                bar.style.height = `${height}%`;
+                bar.title = `Price: ${val}`;
+                container.appendChild(bar);
+            });
+        }
+
+        // -- API Connection & Logic --
+        function handleConnect() {
+            // Default ke App ID 1089 jika user mengosongkan kolom App ID
+            let appIdVal = document.getElementById('appId').value.trim();
+            if (!appIdVal) appIdVal = "1089"; 
+            
+            const tokenVal = document.getElementById('apiToken').value.trim();
+
+            if (!tokenVal) {
+                alert("Harap masukkan Deriv API Token Anda!");
+                return;
+            }
+
+            updateStatus("Connecting...", "blue");
+            setSignalText("Mencoba Terhubung ke Deriv...", "yellow");
+            
+            if (ws) ws.close();
+            
+            // Menggunakan Endpoint derivws yang lebih modern
+            ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${appIdVal}`);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ authorize: tokenVal }));
+            };
+
+            ws.onmessage = (evt) => {
+                const res = JSON.parse(evt.data);
+
+                // Handle Errors
+                if (res.error) {
+                    setSignalText(`ERROR: ${res.error.message}`, "red");
+                    if (res.error.code === 'InvalidToken') {
+                        updateStatus("Auth Failed", "red");
+                    }
+                    return;
+                }
+                
+                // Handle Authorization
+                if (res.msg_type === 'authorize') {
+                    updateStatus("Connected", "blue");
+                    setSignalText("STANDBY", "yellow");
+                    currency = res.authorize.currency;
+                    
+                    // Request Balance & Subscriptions
+                    ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                    ws.send(JSON.stringify({ ticks: getMarketSymbol(), subscribe: 1 }));
+                }
+
+                // Handle Balance Update
+                if (res.msg_type === 'balance') {
+                    balance = res.balance.balance;
+                    document.getElementById('txtBalance').innerText = `${currency} ${balance.toFixed(2)}`;
+                }
+
+                // Handle Incoming Ticks
+                if (res.msg_type === 'tick') {
+                    const price = res.tick.quote;
+                    updateChartData(price);
+                    processBotLogic(price);
+                }
+
+                // Handle Buy Confirmation
+                if (res.msg_type === 'buy') {
+                    activeContract = res.buy.contract_id;
+                    const cost = res.buy.buy_price;
+                    console.log(`Beli Kontrak Sukses: ${activeContract} Harga: ${cost}`);
+                }
+            };
+
+            ws.onclose = () => {
+                updateStatus("Disconnected", "red");
+                setSignalText("Koneksi API Terputus", "red");
+                if (isBotRunning) toggleBot(); // Matikan bot jika disconnect
+            };
+        }
+
+        // -- Trading Engine Core --
+        function executeTrade(type) {
+            if (isTrading || !ws) return;
+            isTrading = true;
+            
+            const symbol = getMarketSymbol();
+            const amount = parseFloat(document.getElementById('stake').value);
+            
+            ws.send(JSON.stringify({
+                buy: 1,
+                price: amount,
+                parameters: {
+                    amount: amount,
+                    basis: "stake",
+                    contract_type: type, // CALL / PUT
+                    currency: currency,
+                    duration: 1,
+                    duration_unit: "t",
+                    symbol: symbol
+                }
+            }));
+
+            // Cooldown sebelum bisa OP lagi
+            setTimeout(() => { isTrading = false; }, 2500);
+        }
+
+        function processBotLogic(currentPrice) {
+            if (!latestPrice) { latestPrice = currentPrice; return; }
+            
+            const prevPrice = latestPrice;
+            latestPrice = currentPrice;
+            
+            if (!isBotRunning) return;
+
+            const marketName = document.getElementById('market').value;
+            const strategy = document.getElementById('strategy').value;
+            const isBoom = marketName.includes("Boom");
+            const diff = currentPrice - prevPrice;
+            
+            // Spike Logic Detection
+            let isSpike = false;
+            if (isBoom && diff > 1.5) isSpike = true;
+            if (!isBoom && diff < -1.5) isSpike = true;
+
+            const normalAction = isBoom ? "PUT" : "CALL"; 
+            const revAction = isBoom ? "CALL" : "PUT"; 
+
+            // ==========================================
+            // STRATEGI 1: Scalping & Auto TP/Cut Spike
+            // ==========================================
+            if (strategy === "1") {
+                if (isSpike) {
+                    setSignalText("SPIKE DETECTED! AUTO TP/CUT TRIGGERED", "red");
+                    if (activeContract && ws) {
+                        ws.send(JSON.stringify({ sell: activeContract, price: 0 }));
+                        activeContract = null;
+                    }
+                    consecutiveTicks = 0;
+                } else {
+                    consecutiveTicks++;
+                    setSignalText(`SCALPING ${normalAction} (Tick: ${consecutiveTicks})`, "emerald");
+                    if (consecutiveTicks % 2 === 0) executeTrade(normalAction);
+                }
+            }
+            // ==========================================
+            // STRATEGI 2: Follow Trend & Reversal
+            // ==========================================
+            else if (strategy === "2") {
+                if (isSpike) consecutiveTicks = 0; 
+                else consecutiveTicks++;
+                
+                if (consecutiveTicks >= 5) {
+                    setSignalText(`REVERSAL OP ${revAction} EXECUTED!`, "emerald");
+                    executeTrade(revAction);
+                    consecutiveTicks = 0;
+                } else {
+                    setSignalText(`FOLLOW TREND (Tick: ${consecutiveTicks})`, "yellow");
+                }
+            }
+            // ==========================================
+            // STRATEGI 3: Counter-Spike
+            // ==========================================
+            else if (strategy === "3") {
+                if (isSpike) {
+                    setSignalText(`SPIKE CAUGHT! (Drop detected)`, "red");
+                    consecutiveTicks = 0;
+                } else {
+                    consecutiveTicks++;
+                    setSignalText(`WAITING SPIKE - PREPARING ${revAction}...`, "yellow");
+                    if (consecutiveTicks > 3) {
+                        executeTrade(revAction);
+                        consecutiveTicks = 0;
+                    }
+                }
+            }
+        }
+
+        // Initialize empty chart on load
+        renderChart();
+    </script>
+</body>
+</html>
