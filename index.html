@@ -295,13 +295,26 @@
             updateStatus("Connecting...", "blue");
             setSignalText("Mencoba Terhubung ke Deriv...", "yellow");
             
-            if (ws) ws.close();
+            if (ws) {
+                if (ws.pingInterval) clearInterval(ws.pingInterval);
+                ws.close();
+            }
             
-            // Menggunakan Endpoint derivws yang lebih modern
-            ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${appIdVal}`);
+            // Menggunakan Endpoint ws.binaryws.com yang JAUH LEBIH STABIL dan anti-blokir ISP
+            const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${appIdVal}`;
+            console.log("Mencoba koneksi ke:", wsUrl);
+            ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
+                console.log("WebSocket Terhubung. Mengirim Otorisasi...");
                 ws.send(JSON.stringify({ authorize: tokenVal }));
+                
+                // Keep-Alive Ping setiap 15 detik agar koneksi tidak diputus server Deriv
+                ws.pingInterval = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ ping: 1 }));
+                    }
+                }, 15000);
             };
 
             ws.onmessage = (evt) => {
@@ -309,15 +322,15 @@
 
                 // Handle Errors
                 if (res.error) {
+                    console.error("API Error:", res.error.message);
                     setSignalText(`ERROR: ${res.error.message}`, "red");
-                    if (res.error.code === 'InvalidToken') {
-                        updateStatus("Auth Failed", "red");
-                    }
+                    updateStatus("Auth Failed", "red");
                     return;
                 }
                 
                 // Handle Authorization
                 if (res.msg_type === 'authorize') {
+                    console.log("Otorisasi Sukses!");
                     updateStatus("Connected", "blue");
                     setSignalText("STANDBY", "yellow");
                     currency = res.authorize.currency;
@@ -348,9 +361,18 @@
                 }
             };
 
-            ws.onclose = () => {
+            ws.onerror = (error) => {
+                console.error("WebSocket Error:", error);
+                setSignalText("Gagal Terhubung (Mungkin diblokir jaringan/ISP)", "red");
+            };
+
+            ws.onclose = (e) => {
+                console.log("WebSocket Ditutup:", e.reason);
+                if (ws.pingInterval) clearInterval(ws.pingInterval);
                 updateStatus("Disconnected", "red");
-                setSignalText("Koneksi API Terputus", "red");
+                if (document.getElementById('txtSignal').innerText !== "Gagal Terhubung (Mungkin diblokir jaringan/ISP)") {
+                     setSignalText("Koneksi API Terputus", "red");
+                }
                 if (isBotRunning) toggleBot(); // Matikan bot jika disconnect
             };
         }
