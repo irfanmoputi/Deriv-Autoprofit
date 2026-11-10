@@ -62,8 +62,8 @@ export default function App() {
     // Helpers
     const getMarketSymbol = (marketName) => {
         const symbolMap = {
-            "Crash 300": "CRASH300N", // Standard deriv virtual index symbols. Adjust as needed.
-            "Crash 500": "CRASH500N", // For test/demo it's often something like 1HZ100V etc.
+            "Crash 300": "CRASH300N", 
+            "Crash 500": "CRASH500N", 
             "Crash 1000": "CRASH1000N",
             "Boom 500": "BOOM500N",
             "Boom 1000": "BOOM1000N"
@@ -256,7 +256,8 @@ export default function App() {
     // Chart path generation
     const maxVal = Math.max(...chartData.filter(v => v !== 0));
     const minVal = Math.min(...chartData.filter(v => v !== 0));
-    const range = maxVal - minVal || 1;
+    const range = maxVal === -Infinity || minVal === Infinity ? 1 : (maxVal - minVal || 1);
+    
     const points = chartData.map((val, i) => {
         if(val === 0) return `${(i / 39) * 100},100`;
         const x = (i / (chartData.length - 1)) * 100;
@@ -267,7 +268,7 @@ export default function App() {
 
     return (
         <div className="bg-[#050505] min-h-screen text-gray-100 font-sans p-2 sm:p-4 md:p-6 overflow-x-hidden selection:bg-red-500/30">
-            <style>{`
+            <style dangerouslySetInnerHTML={{__html: `
                 body {
                     background: radial-gradient(circle at top right, #1f1f1f, #000000);
                 }
@@ -291,7 +292,7 @@ export default function App() {
                 }
                 .pulse-text { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-            `}</style>
+            `}} />
             
             <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
                 
